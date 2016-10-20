@@ -668,7 +668,7 @@ class EF_Calendar extends EF_Module {
 				<tbody>
 				
 				<?php
-				$current_month = date( 'F', strtotime( $filters['start_date'] ) );
+				$current_month = date_i18n( 'F', strtotime( $filters['start_date'] ) );
 				for( $current_week = 1; $current_week <= $this->total_weeks; $current_week++ ):
 					// We need to set the object variable for our posts_where filter
 					$this->current_week = $current_week;
@@ -679,7 +679,7 @@ class EF_Calendar extends EF_Module {
 					$split_month = false;
 					for ( $i = 0 ; $i < 7; $i++ ) {
 						$week_dates[$i] = $week_single_date;
-						$single_date_month = date( 'F', strtotime( $week_single_date ) );
+						$single_date_month = date_i18n( 'F', strtotime( $week_single_date ) );
 						if ( $single_date_month != $current_month ) {
 							$split_month = $single_date_month;
 							$current_month = $single_date_month;
@@ -690,10 +690,10 @@ class EF_Calendar extends EF_Module {
 				<?php if ( $split_month ): ?>
 				<tr class="month-marker">
 					<?php foreach( $week_dates as $key => $week_single_date ) {
-						if ( date( 'F', strtotime( $week_single_date ) ) != $split_month && date( 'F', strtotime( "+1 day", strtotime( $week_single_date ) ) ) == $split_month ) {
-							$previous_month = date( 'F', strtotime( $week_single_date ) );
+						if ( date_i18n( 'F', strtotime( $week_single_date ) ) != $split_month && date_i18n( 'F', strtotime( "+1 day", strtotime( $week_single_date ) ) ) == $split_month ) {
+							$previous_month = date_i18n( 'F', strtotime( $week_single_date ) );
 							echo '<td class="month-marker-previous">' . esc_html( $previous_month ) . '</td>';
-						} else if ( date( 'F', strtotime( $week_single_date ) ) == $split_month && date( 'F', strtotime( "-1 day", strtotime( $week_single_date ) ) ) != $split_month ) {
+						} else if ( date_i18n( 'F', strtotime( $week_single_date ) ) == $split_month && date_i18n( 'F', strtotime( "-1 day", strtotime( $week_single_date ) ) ) != $split_month ) {
 							echo '<td class="month-marker-current">' . esc_html( $split_month ) . '</td>';
 						} else {
 							echo '<td class="month-marker-empty"></td>';
@@ -1158,7 +1158,7 @@ class EF_Calendar extends EF_Module {
 		$html = '';
 		foreach( $dates as $date ) {
 			$html .= '<th class="column-heading" >';
-			$html .= esc_html( date('l', strtotime( $date ) ) );
+			$html .= esc_html( date_i18n('l', strtotime( $date ) ) );
 			$html .= '</th>';
 		}
 		
@@ -1329,17 +1329,11 @@ class EF_Calendar extends EF_Module {
 	function calendar_time_range() {
 		
 		$first_datetime = strtotime( $this->start_date );
-		if ( date( 'Y', current_time( 'timestamp' ) ) != date( 'Y', $first_datetime ) )
-			$first_date = date( 'F jS, Y', $first_datetime );
-		else	
-			$first_date = date( 'F jS', $first_datetime );
+		$first_date = date_i18n( get_option( 'date_format' ), $first_datetime );
 		$total_days = ( $this->total_weeks * 7 ) - 1;
 		$last_datetime = strtotime( "+" . $total_days . " days", date( 'U', strtotime( $this->start_date ) ) );
-		if ( date( 'Y', current_time( 'timestamp' ) ) != date( 'Y', $last_datetime ) )
-			$last_date = date( 'F jS, Y', $last_datetime );
-		else
-			$last_date = date( 'F jS', $last_datetime );
-		echo sprintf( __( 'for %1$s through %2$s'), $first_date, $last_date );
+		$last_date = date_i18n( get_option( 'date_format' ), $last_datetime );
+		echo sprintf( __( 'for %1$s through %2$s', 'edit-flow' ), $first_date, $last_date );
 	}
 	
 	/**
