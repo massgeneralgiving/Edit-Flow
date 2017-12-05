@@ -220,6 +220,7 @@ class EF_Editorial_Metadata extends EF_Module {
 			'location'		=> __('Location', 'edit-flow'),
 			'number'		=> __('Number', 'edit-flow'),
 			'paragraph'		=> __('Paragraph', 'edit-flow'),
+			'dropdown'		=> __('Dropdown Select', 'edit-flow'),
 			'text'			=> __('Text', 'edit-flow'),
 			'user'			=> __('User', 'edit-flow'),
 		);
@@ -376,6 +377,11 @@ class EF_Editorial_Metadata extends EF_Module {
 				$postmeta_key = $this->get_postmeta_key( $term );
 				$current_metadata = esc_attr( $this->get_postmeta_value( $term, $post->ID ) );
 				$type = $term->type;
+				$dropdown_items = $term->dropdown_items;
+				if ( $dropdown_items )
+					$dropdown_items = array_unique( preg_split( '/[\n\r]+/', $dropdown_items ) );
+				else
+					$dropdown_items = array();
 				$description = $term->description;
 				if ( $description )
 					$description_span = "<span class='description'>$description</span>";
@@ -428,6 +434,15 @@ class EF_Editorial_Metadata extends EF_Module {
 						echo "<label for='$postmeta_key'>{$term->name}$description_span</label>";
 						echo "<input id='$postmeta_key' name='$postmeta_key' type='text' value='$current_metadata' />";
 						break;					
+					case "dropdown":
+						echo "<label for='$postmeta_key'>{$term->name}$description_span</label>";
+						echo "<select id='$postmeta_key' name='$postmeta_key'>";
+						foreach ( $dropdown_items as $item ) {
+							$selected = ( $item == $current_metadata ) ? "selected='selected'" : "";
+							echo "<option $selected>$item</option>";
+						}
+						echo "</select>";
+						break;
 					default:
 						echo "<p>" . __( 'This editorial metadata type is not yet supported.', 'edit-flow' ) . "</p>";
 				}
@@ -883,6 +898,7 @@ class EF_Editorial_Metadata extends EF_Module {
 				'slug' => $old_term->slug,
 				'description' => $old_term->description,
 				'type' => $old_term->type,
+				'dropdown_items' => $old_term->dropdown_items,
 				'viewable' => $old_term->viewable,
 			);
 		$new_args = array_merge( $old_args, $args );
@@ -892,6 +908,7 @@ class EF_Editorial_Metadata extends EF_Module {
 			'description' => $new_args['description'],
 			'position' => $new_args['position'],
 			'type' => $new_args['type'],
+			'dropdown_items' => $new_args['dropdown_items'],
 			'viewable' => $new_args['viewable'],
 		);	
 		$encoded_description = $this->get_encoded_description( $args_to_encode );
@@ -934,6 +951,7 @@ class EF_Editorial_Metadata extends EF_Module {
 			'description' => $args['description'],
 			'position' => $args['position'],
 			'type' => $args['type'],
+			'dropdown_items' => $args['dropdown_items'],
 			'viewable' => $args['viewable'],
 		);	
 		$encoded_description = $this->get_encoded_description( $args_to_encode );
@@ -1014,6 +1032,7 @@ class EF_Editorial_Metadata extends EF_Module {
 		$term_slug = ( !empty( $_POST['metadata_slug'] ) ) ? sanitize_title( $_POST['metadata_slug'] ) : sanitize_title( $term_name );
 		$term_description = stripslashes( wp_filter_post_kses( trim( $_POST['metadata_description'] ) ) );
 		$term_type = sanitize_key( $_POST['metadata_type'] );
+		$term_dropdown_items = stripslashes( wp_filter_post_kses( trim( $_POST['metadata_dropdown_items'] ) ) );
 		
 		$_REQUEST['form-errors'] = array();
 		
@@ -1050,6 +1069,9 @@ class EF_Editorial_Metadata extends EF_Module {
 		$term_viewable = false;
 		if ( $_POST['metadata_viewable'] == 'yes' )
 			$term_viewable = true;
+		// Items field is required for dropdown type
+		if ( $term_type == 'dropdown' && empty( $term_dropdown_items ))
+			$_REQUEST['form-errors']['dropdown_items'] = __( 'Please enter items for the dropdown editorial metadata.', 'edit-flow' );
 		
 		// Kick out if there are any errors
 		if ( count( $_REQUEST['form-errors'] ) ) {
@@ -1063,6 +1085,7 @@ class EF_Editorial_Metadata extends EF_Module {
 			'description' => $term_description,
 			'slug' => $term_slug,
 			'type' => $term_type,
+			'dropdown_items' => $term_dropdown_items,
 			'viewable' => $term_viewable,
 		);
 		$return = $this->insert_editorial_metadata_term( $args );
@@ -1089,10 +1112,11 @@ class EF_Editorial_Metadata extends EF_Module {
 			wp_die( $this->module->messages['invalid-permissions'] );			
 		
 		if ( !$existing_term = $this->get_editorial_metadata_term_by( 'id', (int)$_GET['term-id'] ) )
-			wp_die( $this->module->messsage['term-error'] );			
+			wp_die( $this->module->messages['term-missing'] );			
 		
 		$new_name = sanitize_text_field( trim( $_POST['name'] ) );
 		$new_description = stripslashes( wp_filter_post_kses( strip_tags( trim( $_POST['description'] ) ) ) );
+		$new_dropdown_items = stripslashes( wp_filter_post_kses( strip_tags( trim( $_POST['dropdown_items'] ) ) ) );
 			
 		/**
 		 * Form validation for editing editorial metadata term
@@ -1130,7 +1154,10 @@ class EF_Editorial_Metadata extends EF_Module {
 		$new_viewable = false;
 		if ( $_POST['viewable'] == 'yes' )
 			$new_viewable = true;
-	
+		// Items field is required for dropdown type
+		if ( $term_type == 'dropdown' && empty( $term_dropdown_items ))
+			$_REQUEST['form-errors']['dropdown_items'] = __( 'Please enter items for the dropdown editorial metadata.', 'edit-flow' );
+
 		// Kick out if there are any errors
 		if ( count( $_REQUEST['form-errors'] ) ) {
 			$_REQUEST['error'] = 'form-error';
@@ -1141,6 +1168,7 @@ class EF_Editorial_Metadata extends EF_Module {
 		$args = array(
 			'name' => $new_name,
 			'description' => $new_description,
+			'dropdown_items' => $new_dropdown_items,
 			'viewable' => $new_viewable,
 		);
 		$return = $this->update_editorial_metadata_term( $existing_term->term_id, $args );
@@ -1204,7 +1232,7 @@ class EF_Editorial_Metadata extends EF_Module {
 		
 		$term_id = (int) $_POST['term_id'];
 		if ( !$existing_term = $this->get_editorial_metadata_term_by( 'id', $term_id ) )
-			die( $this->module->messsage['term-error'] );
+			die( $this->module->messages['term-missing'] );
 		
 		$metadata_name = sanitize_text_field( trim( $_POST['name'] ) );
 		$metadata_description = stripslashes( wp_filter_post_kses( trim( $_POST['description'] ) ) );
@@ -1313,7 +1341,7 @@ class EF_Editorial_Metadata extends EF_Module {
 			wp_die( $this->module->messages['invalid-permissions'] );
 			
 		if ( !$existing_term = $this->get_editorial_metadata_term_by( 'id', (int)$_GET['term-id'] ) )
-			wp_die( $this->module->messsage['term-error'] );			
+			wp_die( $this->module->messages['term-missing'] );			
 			
 		$result = $this->delete_editorial_metadata_term( $existing_term->term_id );
 		if ( !$result || is_wp_error( $result ) )
@@ -1452,6 +1480,15 @@ class EF_Editorial_Metadata extends EF_Module {
 					<p class="description"><?php _e( 'The metadata type cannot be changed once created.', 'edit-flow' ); ?></p>
 				</td>
 			</tr>
+			<?php if ( $type == 'dropdown' ) : ?>
+			<tr class="form-field">
+				<th scope="row" valign="top"><label for="dropdown_items"><?php _e( 'Dropdown items', 'edit-flow' ); ?></label></th>
+				<td>
+					<textarea name="dropdown_items" id="dropdown_items" rows="5" cols="50" style="width: 97%;"><?php echo esc_html( $term->dropdown_items ); ?></textarea>
+					<p class="description"><?php _e( 'One item per line.', 'edit-flow' ); ?></p>
+				</td>
+			</tr>
+			<?php endif; ?>
 			<tr class="form-field">
 				<th scope="row" valign="top"><?php _e( 'Viewable', 'edit-flow' ); ?></th>
 				<td>
@@ -1526,6 +1563,14 @@ class EF_Editorial_Metadata extends EF_Module {
 				<?php endforeach; ?>
 				</select>
 				<?php $edit_flow->settings->helper_print_error_or_description( 'type', __( 'Indicate the type of editorial metadata.', 'edit-flow' ) ); ?>
+			</div>
+			<?php
+				$dropdown_items_visible = ( isset( $_POST['metadata_type'] ) && $_POST['metadata_type'] == 'dropdown' );
+			?>
+			<div class="form-field form-required" <?php if ( !$dropdown_items_visible ) : ?>style="display:none;"<?php endif ?>>
+				<label for="metadata_dropdown_items"><?php _e( 'Dropdown Items', 'edit-flow' ); ?></label>
+				<textarea cols="40" rows="5" id="metadata_dropdown_items" name="metadata_dropdown_items"><?php if ( !empty( $_POST['metadata_dropdown_items'] ) ) echo esc_html( stripslashes( $_POST['metadata_dropdown_items'] ) ) ?></textarea>
+				<?php $edit_flow->settings->helper_print_error_or_description( 'dropdown_items', __( 'One item per line.', 'edit-flow' ) ); ?>
 			</div>
 			<div class="form-field form-required">
 				<label for="metadata_viewable"><?php _e( 'Viewable', 'edit-flow' ); ?></label>
